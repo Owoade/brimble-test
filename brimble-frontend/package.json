@@ -1,0 +1,33 @@
+{
+  "name": "brimble-frontend",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "routes:generate": "tsr generate",
+    "build": "tsr generate && tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsr generate && tsc -b --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.100.5",
+    "@tanstack/react-router": "^1.168.24",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.4",
+    "@tanstack/react-query-devtools": "^5.100.5",
+    "@tanstack/router-cli": "^1.166.36",
+    "@tanstack/router-devtools": "^1.166.13",
+    "@tanstack/router-plugin": "^1.167.27",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "tailwindcss": "^4.2.4",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10"
+  }
+}
