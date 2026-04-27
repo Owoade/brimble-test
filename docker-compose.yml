@@ -10,7 +10,7 @@ services:
       - "1234:1234"
     restart: unless-stopped
     networks:
-      - brimble_net
+      - net
 
   caddy:
     image: caddy:latest
@@ -19,12 +19,14 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "2019:2019"
     volumes:
-      - ~/owoade_brimble/caddy:/etc/caddy/
+      - ./defaults/caddy.json:/etc/caddy/caddy.json:ro
       - caddy_data:/data
       - caddy_config:/config
+    command: caddy run --config /etc/caddy/caddy.json
     networks:
-      - brimble_net
+      - net
 
   ui:
     build:
@@ -34,7 +36,7 @@ services:
     expose:
       - "80"
     networks:
-      - brimble_net
+      - net
 
   api:
     build:
@@ -52,12 +54,13 @@ services:
     expose:
       - "3000"
     networks:
-      - brimble_net
+      - net
 
 volumes:
   caddy_data:
   caddy_config:
+  app_data:
 
 networks:
-  brimble_net:
+  net:
     driver: bridge

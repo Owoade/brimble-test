@@ -5,11 +5,13 @@ type GlobalConfigType struct {
 	DeploymentFolderName string
 	DockerNetworkName    string
 	ProjectName          string
+	LogParamSeparator    string
 }
 
 var Global = GlobalConfigType{
 	ProjectName:          "owoade_brimble",
-	CaddyContainerName:   "owoade_brimble_caddy",
+	CaddyContainerName:   "caddy",
 	DeploymentFolderName: "apps",
-	DockerNetworkName:    "owoade_brimble_web",
+	DockerNetworkName:    "owoade_brimble_net",
+	LogParamSeparator:    "[owoade_brimble_log_separator]",
 }
