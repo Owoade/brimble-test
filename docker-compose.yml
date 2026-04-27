@@ -1,0 +1,63 @@
+name: owoade_brimble
+
+services:
+  buildkit:
+    image: moby/buildkit
+    container_name: buildkit
+    privileged: true
+    command: ["--addr", "tcp://0.0.0.0:1234"]
+    ports:
+      - "1234:1234"
+    restart: unless-stopped
+    networks:
+      - brimble_net
+
+  caddy:
+    image: caddy:latest
+    container_name: owoade_brimble_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ~/owoade_brimble/caddy:/etc/caddy/
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - brimble_net
+
+  ui:
+    build:
+      context: ./brimble-frontend
+    container_name: owoade_brimble_ui
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - brimble_net
+
+  api:
+    build:
+      context: ./brimble-backend
+    container_name: owoade_brimble_api
+    restart: unless-stopped
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    environment:
+      BUILDKIT_HOST: "tcp://buildkit:1234"
+      DOCKER_BUILDKIT: "1"
+
+    expose:
+      - "3000"
+    networks:
+      - brimble_net
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  brimble_net:
+    driver: bridge

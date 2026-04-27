@@ -7,7 +7,7 @@ import (
 )
 
 func GetDatabase() (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", "./infracon.db")
+	db, err := sql.Open("sqlite3", "./brimble.db")
 	if err != nil {
 		return nil, err
 	}

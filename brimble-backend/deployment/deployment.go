@@ -13,9 +13,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
+	"brimble.backend/config"
 	"brimble.backend/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -25,6 +27,8 @@ func CreateDeployment(c *gin.Context) {
 	c.Writer.Header().Set("Cache-Control", "no-cache")
 	c.Writer.Header().Set("Connection", "keep-alive")
 	c.Writer.Header().Set("Transfer-Encoding", "chunked")
+
+	var allowedType = []string{"github", "zip-upload"}
 
 	var body CreateDeploymentPayload
 	if err := c.ShouldBind(&body); err != nil {
@@ -37,15 +41,27 @@ func CreateDeployment(c *gin.Context) {
 		return
 	}
 
+	if !slices.Contains(allowedType, body.Type) {
+		message := map[string]any{
+			"status":  false,
+			"message": "Invalid `type` value",
+		}
+		messageToJSON, _ := json.Marshal(message)
+		c.SSEvent("message", messageToJSON)
+		return
+	}
+
 	slug := fmt.Sprintf("%s-%d", utils.Slugify(body.Name), time.Now().UnixMilli())
-	destination := filepath.Join("apps", slug)
+	destination := filepath.Join(config.Global.DeploymentFolderName, slug)
 
 	if body.Type == "zip-upload" {
 		fileHeader, err := c.FormFile("file")
 		if err != nil {
 			message := map[string]any{
 				"status":  false,
-				"message": err.Error(),
+				"message": "Error uploading zip file",
+				"error":   err.Error(),
+				"timestamp": time.Now().UnixMilli(),
 			}
 			messageToJSON, _ := json.Marshal(message)
 			c.SSEvent("message", messageToJSON)
@@ -56,6 +72,7 @@ func CreateDeployment(c *gin.Context) {
 			message := map[string]any{
 				"status":  false,
 				"message": "Invalid zip file",
+				"timestamp": time.Now().UnixMilli(),
 			}
 			messageToJSON, _ := json.Marshal(message)
 			c.SSEvent("message", messageToJSON)
@@ -63,11 +80,24 @@ func CreateDeployment(c *gin.Context) {
 		}
 
 		topLevelDirectories, err := unzipFileFromMultipartFile(fileHeader, destination)
+		if err != nil {
+			message := map[string]any{
+				"status":  false,
+				"message": "Error unzipping file",
+				"error":   err.Error(),
+				"timestamp": time.Now().UnixMilli(),
+			}
+			messageToJSON, _ := json.Marshal(message)
+			c.SSEvent("message", messageToJSON)
+			return
+		}
+
 		if len(topLevelDirectories) != 1 {
 			os.RemoveAll(destination)
 			message := map[string]any{
 				"status":  false,
 				"message": "Zip yielded more than one folder",
+				"timestamp": time.Now().UnixMilli(),
 			}
 			messageToJSON, _ := json.Marshal(message)
 			c.SSEvent("message", messageToJSON)
@@ -75,19 +105,108 @@ func CreateDeployment(c *gin.Context) {
 		}
 
 		destination = filepath.Join(destination, topLevelDirectories[0])
-		home, _ := os.UserHomeDir()
+	} else {
+		if body.GithubLink == "" {
+			message := map[string]any{
+				"status":  false,
+				"message": "Github link not provided",
+				"timestamp": time.Now().UnixMilli(),
+			}
+			messageToJSON, _ := json.Marshal(message)
+			c.SSEvent("message", messageToJSON)
+			return
+		}
 
-		cmd := exec.Command(
-			"railpack",
-			"build",
-			filepath.Join(home, "app", destination),
-			"--name",
-			"railpack-api-image",
-		)
+		repo, err := parseGitHubURL(body.GithubLink)
+		if err != nil {
+			message := map[string]any{
+				"status":  false,
+				"message": "Invalid github link",
+				"timestamp": time.Now().UnixMilli(),
+			}
+			messageToJSON, _ := json.Marshal(message)
+			c.SSEvent("message", messageToJSON)
+			return
+		}
 
-		
+		topLevelDirectories, err := pullFromGithub(*repo, destination)
+		if err != nil {
+			message := map[string]any{
+				"status":  false,
+				"message": "Error pulling github repo",
+				"error":   err.Error(),
+				"timestamp": time.Now().UnixMilli(),
+			}
+			messageToJSON, _ := json.Marshal(message)
+			c.SSEvent("message", messageToJSON)
+			return
+		}
 
+		if len(topLevelDirectories) != 1 {
+			os.RemoveAll(destination)
+			message := map[string]any{
+				"status":  false,
+				"message": "Zip yielded more than one folder",
+				"timestamp": time.Now().UnixMilli(),
+			}
+			messageToJSON, _ := json.Marshal(message)
+			c.SSEvent("message", messageToJSON)
+			return
+		}
+
+		destination = filepath.Join(destination, topLevelDirectories[0])
 	}
+
+	dockerImage := fmt.Sprintf("%s_%s", config.Global.ProjectName, slug)
+
+	cmd := exec.Command(
+		"railpack",
+		"build",
+		destination,
+		"--name",
+		dockerImage,
+		"--verbose",
+	)
+
+	execCommandAndStreamViaSSE(cmd, c)
+
+	_, err := getDockerImage(dockerImage)
+	if err != nil {
+		message := map[string]any{
+			"status":  false,
+			"message": "Docker image build failed",
+			"timestamp": time.Now().UnixMilli(),
+		}
+		messageToJSON, _ := json.Marshal(message)
+		c.SSEvent("message", messageToJSON)
+		return
+	}
+
+	env := injectPort(body.Env, 3000)
+	envPath := filepath.Join(destination, ".env")
+
+	if err := os.WriteFile(envPath, []byte(env), 0644); err != nil {
+		message := map[string]any{
+			"status":  false,
+			"message": "Error saving .env to destination",
+			"error":   err.Error(),
+			"timestamp": time.Now().UnixMilli(),
+		}
+		messageToJSON, _ := json.Marshal(message)
+		c.SSEvent("message", messageToJSON)
+		return
+	}
+
+	cmd = exec.Command(
+		"docker", "run",
+		"-d",
+		"--name", slug,
+		"--network", config.Global.DockerNetworkName,
+		"--env-file", envPath,
+		dockerImage,
+	)
+
+	execCommandAndStreamViaSSE(cmd, c)
 }
 
 func isZipFile(file *multipart.FileHeader) error {
@@ -182,6 +301,7 @@ func isSubPath(base, target string) bool {
 }
 
 func execCommandAndStreamViaSSE(c *exec.Cmd, gc *gin.Context) {
+	println("sse function")
 	stdout, _ := c.StdoutPipe()
 	stderr, _ := c.StderrPipe()
 
@@ -190,7 +310,6 @@ func execCommandAndStreamViaSSE(c *exec.Cmd, gc *gin.Context) {
 
 	_ = c.Start()
 
-	// read stdout
 	go func() {
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
@@ -198,7 +317,6 @@ func execCommandAndStreamViaSSE(c *exec.Cmd, gc *gin.Context) {
 		}
 	}()
 
-	// read stderr
 	go func() {
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
@@ -206,22 +324,38 @@ func execCommandAndStreamViaSSE(c *exec.Cmd, gc *gin.Context) {
 		}
 	}()
 
-	// wait for command
 	go func() {
 		c.Wait()
 		done <- true
 	}()
 
-	// SSE loop
 	for {
 		select {
 		case line := <-logChan:
-			// fmt.Fprintf(c.Writer, "data: %s\n\n", line)
-			// flusher.Flush()
-			gc.SSEvent("message", fmt.Sprintf("data: %s\n\n", line))
+			message := map[string]any{
+				"status":  true,
+				"message": "Build message",
+				"data": map[string]any{
+					"type": "BUILD",
+					"log":  line,
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			messageToJSON, _ := json.Marshal(message)
+			gc.SSEvent("message", messageToJSON)
 
 		case <-done:
-			gc.SSEvent("message", "data: BUILD FINISHED\n\n")
+			message := map[string]any{
+				"status":  true,
+				"message": "Build message",
+				"data": map[string]any{
+					"type": "BUILD",
+					"log":  "BUILD FINISHED",
+				},
+				"timestamp": time.Now().UnixMilli(),
+			}
+			messageToJSON, _ := json.Marshal(message)
+			gc.SSEvent("message", messageToJSON)
 			return
 
 		case <-gc.Request.Context().Done():
@@ -229,4 +363,159 @@ func execCommandAndStreamViaSSE(c *exec.Cmd, gc *gin.Context) {
 		}
 	}
 
+}
+
+func getDockerImage(imageName string) (di *DockerImage, err error) {
+	cmd := exec.Command("docker", "image", "inspect", imageName)
+
+	output, err := cmd.Output()
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to inspect image: %w", err)
+	}
+
+	var result []DockerImage
+	if err := json.Unmarshal(output, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("no image data found")
+	}
+
+	return &result[0], nil
+}
+
+func injectPort(env string, port int) string {
+	lines := strings.Split(env, "\n")
+
+	found := false
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "PORT=") {
+			lines[i] = fmt.Sprintf("PORT=%d", port)
+			found = true
+			break
+		}
+	}
+	if !found {
+		lines = append(lines, fmt.Sprintf("PORT=%d", port))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func parseGitHubURL(raw string) (*GitRepo, error) {
+	raw = strings.TrimSpace(raw)
+	raw = strings.TrimSuffix(raw, ".git")
+
+	raw = strings.TrimPrefix(raw, "https://")
+	raw = strings.TrimPrefix(raw, "http://")
+
+	if strings.HasPrefix(raw, "git@") {
+		parts := strings.Split(raw, ":")
+		if len(parts) != 2 {
+			return nil, errors.New("invalid ssh git url")
+		}
+		raw = parts[1]
+	}
+
+	raw = strings.TrimPrefix(raw, "github.com/")
+	raw = strings.TrimPrefix(raw, "www.github.com/")
+
+	parts := strings.Split(raw, "/")
+	if len(parts) != 2 {
+		return nil, errors.New("invalid repo format")
+	}
+	return &GitRepo{
+		Owner: parts[0],
+		Name:  parts[1],
+	}, nil
+
+}
+
+func pullFromGithub(p GitRepo, destination string) (td []string, err error) {
+
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/zipball", p.Owner, p.Name)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		var response map[string]string
+		json.NewDecoder(resp.Body).Decode(&response)
+		return nil, fmt.Errorf("Github error: %s", response["message"])
+	}
+
+	var buf bytes.Buffer
+	size, err := io.Copy(&buf, resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := zip.NewReader(bytes.NewReader(buf.Bytes()), size)
+	if err != nil {
+		return nil, err
+	}
+
+	topLevelDirectories := []string{}
+	for _, f := range r.File {
+		fpath := filepath.Join(destination, f.Name)
+
+		if !strings.HasPrefix(fpath, filepath.Clean(destination)+string(os.PathSeparator)) {
+			return nil, fmt.Errorf("illegal file path: %s", fpath)
+		}
+
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(fpath, os.ModePerm)
+			if len(topLevelDirectories) == 0 {
+				topLevelDirectories = append(topLevelDirectories, strings.Split(f.Name, string(filepath.Separator))[0])
+			} else {
+				lastDir := topLevelDirectories[len(topLevelDirectories)-1]
+				if !isSubPath(lastDir, f.Name) {
+					topLevelDirectories = append(topLevelDirectories, f.Name)
+				}
+			}
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+			return nil, err
+		}
+
+		inFile, err := f.Open()
+		if err != nil {
+			return nil, err
+		}
+
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			inFile.Close()
+			return nil, err
+		}
+
+		_, err = io.Copy(outFile, inFile)
+		inFile.Close()
+		outFile.Close()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return topLevelDirectories, nil
 }

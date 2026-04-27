@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-ssr
+.tanstack
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Dockerfile
+.dockerignore
+README.md

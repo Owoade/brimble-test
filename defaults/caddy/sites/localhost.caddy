@@ -1,0 +1,10 @@
+localhost {
+    route {
+        handle_path /api/* {
+            reverse_proxy owoade_brimble_api:3000
+        }
+        handle {
+            reverse_proxy owoade_brimble_ui:80
+        }
+    }
+}

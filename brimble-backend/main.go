@@ -2,6 +2,7 @@ package main
 
 import (
 	"brimble.backend/db"
+	"brimble.backend/deployment"
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,6 +14,7 @@ func init() {
 
 func main() {
 	r := gin.Default()
-	
-	r.Run(":5000")
+
+	r.POST("/deployment", deployment.CreateDeployment)
+	r.Run(":3000")
 }
