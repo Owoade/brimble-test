@@ -319,3 +319,36 @@ func GetProjectImages(slug string) ([]ProjectImage, error) {
 	}
 	return images, rows.Err()
 }
+
+func DeleteLogs(slug string) error {
+	db, err := GetDatabase()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`DELETE FROM logs WHERE project_slug = ?`, slug)
+	return err
+}
+
+func DeleteProjectImages(projectID int64) error {
+	db, err := GetDatabase()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`DELETE FROM docker_images WHERE project_id = ?`, projectID)
+	return err
+}
+
+func DeleteProject(slug string) error {
+	db, err := GetDatabase()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`DELETE FROM projects WHERE slug = ?`, slug)
+	return err
+}

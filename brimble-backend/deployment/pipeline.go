@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"brimble.backend/config"
 	"github.com/gin-gonic/gin"
@@ -138,7 +139,27 @@ func stopAndRemoveContainer(name string) error {
 	cmd := exec.Command("docker", "rm", "-f", name)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		if strings.Contains(string(out), "No such container") {
+			return nil
+		}
 		return fmt.Errorf("docker rm -f %s: %w: %s", name, err, string(out))
+	}
+	return nil
+}
+
+// removeDockerImage force-removes an image by tag. Missing images are not
+// treated as errors.
+func removeDockerImage(tag string) error {
+	if tag == "" {
+		return nil
+	}
+	cmd := exec.Command("docker", "image", "rm", "-f", tag)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if strings.Contains(string(out), "No such image") {
+			return nil
+		}
+		return fmt.Errorf("docker image rm -f %s: %w: %s", tag, err, string(out))
 	}
 	return nil
 }

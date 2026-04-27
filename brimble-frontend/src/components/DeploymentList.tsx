@@ -35,7 +35,7 @@ export function DeploymentList({
             <li key={d.id}>
               <button
                 type="button"
-                onClick={() => onSelect(d.id)}
+                onClick={() => onSelect(d.slug ?? d.id)}
                 className="w-full text-left px-5 py-4 hover:bg-neutral-800/40 transition grid grid-cols-12 gap-4 items-center"
               >
                 <div className="col-span-12 sm:col-span-4 min-w-0">
@@ -46,9 +46,11 @@ export function DeploymentList({
                     <StatusBadge status={d.status} />
                   </div>
                   <div className="text-[11px] text-neutral-500 mt-1 truncate">
-                    {d.source.type === "git"
-                      ? d.source.repo
-                      : `upload: ${d.source.filename}`}
+                    {d.source
+                      ? d.source.type === "github"
+                        ? d.source.githubLink
+                        : `upload: ${d.source.filename}`
+                      : (d.slug ?? d.containerName ?? "")}
                   </div>
                 </div>
 

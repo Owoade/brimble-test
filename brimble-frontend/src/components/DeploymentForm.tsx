@@ -1,57 +1,53 @@
 import { useState, type FormEvent } from "react";
-import { useCreateDeployment } from "../lib/queries";
-import { parseEnvText } from "../lib/env";
-import type { Deployment } from "../lib/types";
+import { startPendingDeployment } from "../lib/pendingDeployments";
 
-type SourceMode = "git" | "upload";
+type SourceType = "github" | "zip-upload";
 
 interface Props {
-  onCreated?: (d: Deployment) => void;
+  onCreated?: (id: string) => void;
   embedded?: boolean;
 }
 
 export function DeploymentForm({ onCreated, embedded = false }: Props) {
-  const [mode, setMode] = useState<SourceMode>("git");
+  const [type, setType] = useState<SourceType>("github");
   const [name, setName] = useState("");
-  const [gitUrl, setGitUrl] = useState("");
-  const [branch, setBranch] = useState("");
+  const [githubLink, setGithubLink] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [envText, setEnvText] = useState("");
-
-  const create = useCreateDeployment();
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   function reset() {
     setName("");
-    setGitUrl("");
-    setBranch("");
+    setGithubLink("");
     setFile(null);
     setEnvText("");
   }
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (mode === "git" && !gitUrl.trim()) return;
-    if (mode === "upload" && !file) return;
+    if (!name.trim()) return;
+    if (type === "github" && !githubLink.trim()) return;
+    if (type === "zip-upload" && !file) return;
 
-    const env = parseEnvText(envText);
-
+    setSubmitting(true);
+    setErrorMsg(null);
     try {
-      const d = await create.mutateAsync({
-        name: name.trim() || undefined,
-        gitUrl: mode === "git" ? gitUrl.trim() : undefined,
-        branch: mode === "git" && branch.trim() ? branch.trim() : undefined,
-        file: mode === "upload" ? file : null,
-        env,
+      const id = startPendingDeployment({
+        name: name.trim(),
+        type,
+        githubLink: type === "github" ? githubLink.trim() : undefined,
+        file: type === "zip-upload" ? file : null,
+        envText: envText.trim() || undefined,
       });
-      onCreated?.(d);
+      onCreated?.(id);
       reset();
-    } catch {
-      /* error surfaced below */
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
     }
   }
-
-  const submitting = create.isPending;
-  const errorMsg = create.error instanceof Error ? create.error.message : null;
 
   const formCls = embedded
     ? "space-y-4"
@@ -68,57 +64,55 @@ export function DeploymentForm({ onCreated, embedded = false }: Props) {
         </div>
       )}
 
+      <div className="rounded-md border border-neutral-800 bg-neutral-900/40 px-3 py-2 text-[11px] text-neutral-400">
+        <span className="text-neutral-300">Heads up:</span> your app must
+        listen on{" "}
+        <span className="font-mono text-neutral-200">port 3000</span> to
+        receive traffic.
+      </div>
+
       <div className="inline-flex rounded-lg bg-neutral-800/60 p-0.5 text-xs">
-        {(["git", "upload"] as const).map((m) => (
+        {(["github", "zip-upload"] as const).map((m) => (
           <button
             key={m}
             type="button"
-            onClick={() => setMode(m)}
+            onClick={() => setType(m)}
             className={`px-3 py-1.5 rounded-md transition ${
-              mode === m
+              type === m
                 ? "bg-neutral-950 text-neutral-100 shadow"
                 : "text-neutral-400 hover:text-neutral-200"
             }`}
           >
-            {m === "git" ? "Git URL" : "Upload"}
+            {m === "github" ? "GitHub" : "Zip upload"}
           </button>
         ))}
       </div>
 
-      <Field label="Name" hint="Optional. Used in the URL slug.">
+      <Field label="Name" required hint="Used in the URL slug.">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="my-app"
           className={inputCls}
+          required
         />
       </Field>
 
-      {mode === "git" ? (
-        <>
-          <Field label="Git URL" required>
-            <input
-              value={gitUrl}
-              onChange={(e) => setGitUrl(e.target.value)}
-              placeholder="https://github.com/user/repo"
-              className={inputCls}
-              required
-            />
-          </Field>
-          <Field label="Branch" hint="Defaults to the repo's default branch.">
-            <input
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-              placeholder="main"
-              className={inputCls}
-            />
-          </Field>
-        </>
+      {type === "github" ? (
+        <Field label="GitHub link" required>
+          <input
+            value={githubLink}
+            onChange={(e) => setGithubLink(e.target.value)}
+            placeholder="https://github.com/user/repo"
+            className={inputCls}
+            required
+          />
+        </Field>
       ) : (
-        <Field label="Project archive" required hint=".zip or .tar.gz">
+        <Field label="Project archive" required hint=".zip">
           <input
             type="file"
-            accept=".zip,.tar,.tgz,.tar.gz,application/zip,application/gzip,application/x-tar"
+            accept=".zip,application/zip"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             className="block w-full text-xs text-neutral-300 file:mr-3 file:rounded-md file:border-0 file:bg-neutral-800 file:px-3 file:py-1.5 file:text-xs file:text-neutral-100 hover:file:bg-neutral-700"
             required

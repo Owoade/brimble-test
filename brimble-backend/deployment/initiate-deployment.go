@@ -139,6 +139,7 @@ func CreateDeployment(c *gin.Context) {
 
 	url := fmt.Sprintf("http://%s.localhost/", slug)
 	emit("SUCCESS", url)
+	emit("INTERNAL-MESSAGE", fmt.Sprintf("%s:%s", "slug", slug))
 
 	if err := db.UpdateProject(slug, body.Env, imageName, containerName, "running"); err != nil {
 		emit("ERROR", fmt.Sprintf("%s:%s", "Failed to update project", err.Error()))

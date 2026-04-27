@@ -34,7 +34,7 @@ services:
     container_name: owoade_brimble_ui
     restart: unless-stopped
     expose:
-      - "80"
+      - "4173"
     networks:
       - net
 

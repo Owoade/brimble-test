@@ -2,7 +2,10 @@ package deployment
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
+	"os/exec"
+	"strings"
 
 	"brimble.backend/db"
 	"github.com/gin-gonic/gin"
@@ -145,5 +148,53 @@ func GetDeploymentImages(c *gin.Context) {
 	c.JSON(http.StatusOK, map[string]any{
 		"status": true,
 		"data":   images,
+	})
+}
+
+func GetDeploymentRuntimeLogs(c *gin.Context) {
+	slug := c.Param("slug")
+
+	project, err := db.GetProject(slug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, map[string]any{
+				"status":  false,
+				"message": "Deployment not found",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, map[string]any{
+			"status":  false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	if project.ContainerName == "" {
+		c.JSON(http.StatusBadRequest, map[string]any{
+			"status":  false,
+			"message": "Deployment has no running container",
+		})
+		return
+	}
+
+	cmd := exec.Command("docker", "logs", project.ContainerName)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, map[string]any{
+			"status":  false,
+			"message": fmt.Sprintf("docker logs %s: %s: %s", project.ContainerName, err.Error(), string(output)),
+		})
+		return
+	}
+
+	logs := strings.Split(strings.TrimRight(string(output), "\n"), "\n")
+	if len(logs) == 1 && logs[0] == "" {
+		logs = []string{}
+	}
+
+	c.JSON(http.StatusOK, map[string]any{
+		"status": true,
+		"data":   logs,
 	})
 }

@@ -1,11 +1,10 @@
 import { Modal } from "./Modal";
 import { DeploymentForm } from "./DeploymentForm";
-import type { Deployment } from "../lib/types";
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onCreated?: (d: Deployment) => void;
+  onCreated?: (id: string) => void;
 }
 
 export function NewDeploymentModal({ open, onClose, onCreated }: Props) {
@@ -14,8 +13,8 @@ export function NewDeploymentModal({ open, onClose, onCreated }: Props) {
       <div className="overflow-y-auto p-5">
         <DeploymentForm
           embedded
-          onCreated={(d) => {
-            onCreated?.(d);
+          onCreated={(id) => {
+            onCreated?.(id);
             onClose();
           }}
         />

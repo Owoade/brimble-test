@@ -233,6 +233,8 @@ func UpdateDeploymentEnv(c *gin.Context) {
 		}
 	}()
 
+	emit("INFO", "Environment variables changed, redeploying app...")
+
 	deployTs := time.Now().UnixMilli()
 	newContainer := fmt.Sprintf("%s_%d", slug, deployTs)
 	envDir := filepath.Join(config.Global.DeploymentFolderName, project.CurrentImage)

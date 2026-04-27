@@ -1,9 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { DeploymentList } from "../components/DeploymentList";
 import { NewDeploymentModal } from "../components/NewDeploymentModal";
 import { DeploymentDetailModal } from "../components/DeploymentDetailModal";
-import { useDeployments } from "../lib/queries";
+import { deploymentKeys, useDeployments } from "../lib/queries";
+import {
+  clearPendingDeployment,
+  pendingAsDeployment,
+  usePendingDeployment,
+} from "../lib/pendingDeployments";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -13,8 +19,25 @@ function HomePage() {
   const { data: deployments = [], isLoading, error } = useDeployments();
   const [newOpen, setNewOpen] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const qc = useQueryClient();
 
-  const opened = deployments.find((d) => d.id === openId) ?? null;
+  const pending = usePendingDeployment(openId);
+  const opened = pending
+    ? pendingAsDeployment(pending)
+    : (deployments.find((d) => d.slug === openId || d.id === openId) ?? null);
+
+  useEffect(() => {
+    if (!pending || !pending.done || !pending.slug) return;
+    if (pending.slug === openId) return;
+    const oldId = pending.id;
+    const newSlug = pending.slug;
+    const t = setTimeout(() => {
+      setOpenId(newSlug);
+      qc.invalidateQueries({ queryKey: deploymentKeys.list() });
+      clearPendingDeployment(oldId);
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [pending, openId, qc]);
 
   return (
     <>
@@ -46,7 +69,7 @@ function HomePage() {
       <NewDeploymentModal
         open={newOpen}
         onClose={() => setNewOpen(false)}
-        onCreated={(d) => setOpenId(d.id)}
+        onCreated={(id) => setOpenId(id)}
       />
 
       <DeploymentDetailModal

@@ -1,16 +1,21 @@
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type UseQueryOptions,
-} from "@tanstack/react-query";
+import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { api } from "./api";
-import type { CreateDeploymentInput, Deployment } from "./types";
+import type {
+  BackendContainerStatus,
+  Deployment,
+  DeploymentImage,
+} from "./types";
 
 export const deploymentKeys = {
   all: ["deployments"] as const,
   list: () => [...deploymentKeys.all, "list"] as const,
   detail: (id: string) => [...deploymentKeys.all, "detail", id] as const,
+  status: (slug: string) => [...deploymentKeys.all, "status", slug] as const,
+  buildLogs: (slug: string) =>
+    [...deploymentKeys.all, "logs", "build", slug] as const,
+  runtimeLogs: (slug: string) =>
+    [...deploymentKeys.all, "logs", "runtime", slug] as const,
+  images: (slug: string) => [...deploymentKeys.all, "images", slug] as const,
 };
 
 export function useDeployments(
@@ -33,36 +38,57 @@ export function useDeployment(id: string | undefined) {
   });
 }
 
-export function useCreateDeployment() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: CreateDeploymentInput) => api.createDeployment(input),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: deploymentKeys.list() });
-    },
+export function useDeploymentStatus(slug: string | undefined) {
+  return useQuery<BackendContainerStatus>({
+    queryKey: deploymentKeys.status(slug ?? ""),
+    queryFn: () => api.getDeploymentStatus(slug!),
+    enabled: Boolean(slug),
+    refetchInterval: 5_000,
+    retry: false,
   });
 }
 
-export function useRedeploy() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, buildId }: { id: string; buildId?: string }) =>
-      api.redeploy(id, buildId),
-    onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: deploymentKeys.list() });
-      qc.invalidateQueries({ queryKey: deploymentKeys.detail(data.id) });
-    },
+export type DeploymentLogSource = "runtime" | "build" | null;
+
+export function useDeploymentLogs(
+  slug: string | undefined,
+  status: Deployment["status"] | undefined,
+  override?: DeploymentLogSource,
+) {
+  const derived: DeploymentLogSource =
+    !slug || !status
+      ? null
+      : status === "running"
+        ? "runtime"
+        : status === "failed" || status === "building" || status === "deploying"
+          ? "build"
+          : null;
+  const source: DeploymentLogSource = override ?? derived;
+
+  const query = useQuery<string[]>({
+    queryKey:
+      source === "runtime"
+        ? deploymentKeys.runtimeLogs(slug ?? "")
+        : deploymentKeys.buildLogs(slug ?? ""),
+    queryFn: () =>
+      source === "runtime"
+        ? api.getRuntimeLogs(slug!)
+        : api.getDeploymentLogs(slug!),
+    enabled: Boolean(slug && source),
+    refetchInterval: status === "building" ? 2_000 : false,
+  });
+
+  return { ...query, source };
+}
+
+export function useDeploymentImages(slug: string | undefined) {
+  return useQuery<DeploymentImage[]>({
+    queryKey: deploymentKeys.images(slug ?? ""),
+    queryFn: () => api.getDeploymentImages(slug!),
+    enabled: Boolean(slug),
   });
 }
 
-export function useUpdateEnv() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, env }: { id: string; env: Record<string, string> }) =>
-      api.updateEnv(id, env),
-    onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: deploymentKeys.list() });
-      qc.invalidateQueries({ queryKey: deploymentKeys.detail(data.id) });
-    },
-  });
-}
+
+
+
