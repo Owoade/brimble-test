@@ -35,7 +35,7 @@ docker compose down -v
 
 Two sample apps are provided for testing the pipeline end-to-end.
 
-### 1. Go Microservice (Zip upload)
+### 1. Go HTTP Server (Zip upload)
 
 A minimal Go HTTP server packaged as a zip archive. Use this to test the **file upload** flow in the UI.
 
