@@ -43,7 +43,7 @@ A minimal Go HTTP server packaged as a zip archive. Use this to test the **file 
 
 Steps:
 1. Download the zip
-2. Open the UI at http://localhost:4173
+2. Open the UI at http://localhost:80
 3. Click **New Deployment → Upload Zip Folder**
 4. Upload the zip and submit
 5. Watch the build and deploy logs stream live
