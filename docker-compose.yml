@@ -15,7 +15,6 @@ services:
   caddy:
     image: caddy:latest
     container_name: owoade_brimble_caddy
-    platform: linux/arm64
     restart: unless-stopped
     ports:
       - "80:80"
@@ -30,9 +29,8 @@ services:
       - net
 
   ui:
-    image: owoade/brimble-frontend:latest
+    image: owoade/brimble-frontend:3
     container_name: owoade_brimble_ui
-    platform: linux/arm64
     restart: unless-stopped
     expose:
       - "4173"

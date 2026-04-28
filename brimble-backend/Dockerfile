@@ -9,7 +9,7 @@
     # Install C toolchain for CGO
     RUN apk add --no-cache gcc musl-dev
     
-    RUN CGO_ENABLED=1 GOOS=linux GOARCH=arm64 \
+    RUN CGO_ENABLED=1 \
         go build -o main .
     
     # ---- Runtime stage ----
