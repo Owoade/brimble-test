@@ -38,7 +38,7 @@ services:
       - net
 
   api:
-    image: owoade/brimble-backend:latest
+    image: owoade/brimble-backend:3
     container_name: owoade_brimble_api
     restart: unless-stopped
 
