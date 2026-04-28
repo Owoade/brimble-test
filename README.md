@@ -101,7 +101,7 @@ https://www.loom.com/share/58f27a5b971b41f2955ba04669b6b3b2
 
 **Finding 1 - GitHub repository access is permanent after setup**
  
-Connect your GitHub account and select the repositories you want the platform to access. If you did not include the repository you want to deploy, there is no way to update your selection from within Brimble. The platform does not prompt you to disconnect or guide you to fix it. The only resolution is to go to GitHub directly, revoke the app's access, and reconnect from scratch. There should be an option to edit repository access from within the platform without having to redo the entire integration.
+Connect your GitHub account and select the repositories you want the platform to access. If you did not include the repository you want to deploy, there is no way to update your selection from within Brimble. The platform does not prompt you to disconnect or guide you to fix it. The only resolution is to go to GitHub directly, revoke the app's access, and reconnect from scratch. There should be an option to revoke access and reconnect from within the app.
  
 **Finding 2 - Subscription error leads nowhere**
  
