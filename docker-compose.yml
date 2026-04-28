@@ -39,8 +39,7 @@ services:
       - net
 
   api:
-    build:
-      context: ./brimble-backend
+    image: owoade/brimble-backend:latest
     container_name: owoade_brimble_api
     restart: unless-stopped
 
