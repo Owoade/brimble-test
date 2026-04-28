@@ -16,6 +16,7 @@ services:
     image: caddy:latest
     container_name: owoade_brimble_caddy
     restart: unless-stopped
+    platform: linux/amd64
     ports:
       - "80:80"
       - "443:443"
