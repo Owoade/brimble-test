@@ -29,8 +29,7 @@ services:
       - net
 
   ui:
-    build:
-      context: ./brimble-frontend
+    image: owoade/brimble-frontend:latest
     container_name: owoade_brimble_ui
     restart: unless-stopped
     expose:
