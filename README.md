@@ -106,6 +106,7 @@ Connect your GitHub account and select the repositories you want the platform to
 **Finding 2 - Subscription error leads nowhere**
  
 Go to the database provisioning screen and select a database that requires a paid plan, such as MySQL or Redis, then hit provision. You get an error that says "subscription required, contact support" with nothing else on the screen, no link, no button, no next step. You are left to find the billing page on your own, and by the time you do, the context of what you were trying to provision is gone. When a resource requires a paid plan, the platform should detect this and open an upgrade flow inline on the same screen, not dead-end the user into a support ticket.
+
 ---
 
 ## Time Spent
