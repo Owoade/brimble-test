@@ -4,6 +4,7 @@
   FROM node:22-alpine AS build
   WORKDIR /app
   
+  # Copy dependency files first (better cache)
   COPY package*.json ./
   COPY pnpm-lock.yaml* ./
   COPY tsconfig*.json ./
@@ -11,21 +12,21 @@
   RUN npm install -g pnpm
   RUN pnpm install
   
+  # Now copy source files
   COPY . .
   
+  # Build
   RUN npm run build
   
-  # --- runtime (preview) ---
-  FROM node:22-alpine
+  # --- runtime ---
+  FROM nginx:1.27-alpine AS runtime
   
-  WORKDIR /app
+  COPY nginx.conf /etc/nginx/conf.d/default.conf
+  COPY --from=build /app/dist /usr/share/nginx/html
   
-  # install pnpm again (needed to run preview script)
-  RUN npm install -g pnpm
+  EXPOSE 80
   
-  # copy only what's needed
-  COPY --from=build /app ./
+  HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1
   
-  EXPOSE 4173
-  
-  CMD ["pnpm", "preview", "--host", "0.0.0.0"]
+  CMD ["nginx", "-g", "daemon off;"]

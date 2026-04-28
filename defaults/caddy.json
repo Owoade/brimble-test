@@ -22,7 +22,7 @@
                 "handle": [
                   {
                     "handler": "reverse_proxy",
-                    "upstreams": [{ "dial": "ui:4173" }]
+                    "upstreams": [{ "dial": "ui:80" }]
                   }
                 ]
               }
