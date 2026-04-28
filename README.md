@@ -67,7 +67,7 @@ Steps:
 
 **Go for the API.** Go's `net/http` makes SSE straightforward — `http.Flusher` lets us push log lines to the client as they arrive from the Railpack build process, with no third-party streaming library needed.
 
-**SQLite for state.** There is one server, one pipeline. SQLite is the right call here — no infra overhead, transactions where needed, and easy to inspect. Swapping for Postgres is a one-line DSN change.
+**SQLite for state.** There is one server, one pipeline. SQLite is the right call here — no infra overhead, transactions where needed, and easy to inspect. 
 
 **Caddy Admin API for routing.** Rather than rewriting a static `Caddyfile` on every deploy, the API calls Caddy's `/config/` endpoint to add or update a reverse-proxy route per deployment. This mirrors how a real PaaS manages ingress dynamically.
 
@@ -99,14 +99,13 @@ https://www.loom.com/share/58f27a5b971b41f2955ba04669b6b3b2
 
 ### Feedback
 
-**Finding 1 — GitHub repository access is permanent after setup**
-
-Connect your GitHub account, select a set of repositories, and complete the setup. Then go back to the GitHub integration settings and try to add a new repository or remove one you already selected. There is no option to edit your repository selection after the initial setup. The only way out is to disconnect GitHub entirely and reconnect from scratch. For something as routine as adding a new repo to an existing project, that is a frustrating and unnecessary detour. There should be an "Edit access" button that reopens the repository selection flow without touching the rest of the integration.
-
-**Finding 2 — Subscription error leads nowhere**
-
-Go to the database provisioning screen and select a database that requires a paid plan, such as MySQL or Redis, then hit provision. You get an error that says "subscription required, contact support" with nothing else on the screen — no link, no button, no next step. You are left to find the billing page on your own, and by the time you do, the context of what you were trying to provision is gone. When a resource requires a paid plan, the platform should detect this and open an upgrade flow inline on the same screen, not dead-end the user into a support ticket.
-
+**Finding 1 - GitHub repository access is permanent after setup**
+ 
+Connect your GitHub account and select the repositories you want the platform to access. If you did not include the repository you want to deploy, there is no way to update your selection from within Brimble. The platform does not prompt you to disconnect or guide you to fix it. The only resolution is to go to GitHub directly, revoke the app's access, and reconnect from scratch. There should be an option to edit repository access from within the platform without having to redo the entire integration.
+ 
+**Finding 2 - Subscription error leads nowhere**
+ 
+Go to the database provisioning screen and select a database that requires a paid plan, such as MySQL or Redis, then hit provision. You get an error that says "subscription required, contact support" with nothing else on the screen, no link, no button, no next step. You are left to find the billing page on your own, and by the time you do, the context of what you were trying to provision is gone. When a resource requires a paid plan, the platform should detect this and open an upgrade flow inline on the same screen, not dead-end the user into a support ticket.
 ---
 
 ## Time Spent
@@ -122,7 +121,6 @@ Go to the database provisioning screen and select a database that requires a pai
 
 **Observability per deployment.** Track resource usage — CPU, memory, and network I/O — per running container.
 
-**Traffic analytics.** Request volume per deployment, broken down by route, so you can see exactly where traffic is hitting before deciding to roll back or promote a new version.
+**Traffic analytics.** Request volume per deployment, broken down by route. 
 
-**Build cache reuse.** Each Railpack build starts cold. Mounting a shared cache volume and passing it to `railpack build` would meaningfully cut build times on repeated deploys of the same app.
 
