@@ -30,7 +30,7 @@ services:
       - net
 
   ui:
-    image: owoade/brimble-frontend:3
+    image: owoade/brimble-frontend:4
     container_name: owoade_brimble_ui
     restart: unless-stopped
     expose:
