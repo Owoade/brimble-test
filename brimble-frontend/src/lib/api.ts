@@ -11,7 +11,7 @@ import type {
   UpdateSourceInput,
 } from "./types";
 
-const API_BASE = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
+const API_BASE = (`${window.location.origin}/api`).replace(/\/$/, "");
 
 export const LOG_SEPARATOR = "[owoade_brimble_log_separator]";
 
