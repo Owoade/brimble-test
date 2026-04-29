@@ -39,7 +39,7 @@ services:
       - net
 
   api:
-    image: owoade/brimble-backend:3
+    image: owoade/brimble-backend:5
     # build:
     #   context: ./brimble-backend
     container_name: owoade_brimble_api
